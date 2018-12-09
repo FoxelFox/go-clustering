@@ -3,23 +3,25 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"golang.org/x/image/math/f32"
+	"github.com/go-gl/mathgl/mgl32"
+	"github.com/jinzhu/copier"
 )
 
-type DataStructure struct {
+type dataStructure struct {
 	id       int32
 	edges    []Edge
-	position f32.Vec3
+	position mgl32.Vec3
 }
 
 type Edge struct {
-	conc  string
-	force float32
+	attraction string
+	force      float32
 }
 
 // 974610|242760|1
@@ -37,24 +39,30 @@ func main() {
 
 	lines := strings.Split(string(data), "\n")[1:]
 
-	m := make(map[string]DataStructure)
+	m := make(map[string]*dataStructure)
 	var index int32
 	var maxForce float32
 	var maxEdges int
 
 	t := time.Now()
-	elapsed1 := t.Sub(start)
 
 	// create map
 	for _, line := range lines {
 		v := strings.Split(line, "|")
-		prem := DataStructure{}
-		if value, ok := m[v[0]]; ok {
-			prem = value
-		} else {
+
+		var prem *dataStructure
+		var ok bool
+		if prem, ok = m[v[0]]; !ok {
 			index++
-			m[v[0]] = DataStructure{id: index, edges: []Edge{}}
-			prem = m[v[0]]
+
+			randomVector := mgl32.Vec3{
+				rand.Float32(),
+				rand.Float32(),
+				rand.Float32(),
+			}
+
+			prem = &dataStructure{id: index, edges: []Edge{}, position: randomVector}
+			m[v[0]] = prem
 		}
 
 		value, _ := strconv.ParseFloat(v[2], 32)
@@ -64,67 +72,61 @@ func main() {
 			maxForce = force
 		}
 
-		prem.edges = append(prem.edges, Edge{conc: v[1], force: force})
+		prem.edges = append(prem.edges, Edge{attraction: v[1], force: force})
 
 		if maxEdges < len(prem.edges) {
 			maxEdges++
 		}
 	}
 
-	// create dataset
-	t = time.Now()
-	elapsed2 := t.Sub(start)
-	fmt.Println(elapsed1)
-	fmt.Println(elapsed2)
+	// buffer 2
 
-	fmt.Print("Max Force: ")
-	fmt.Printf("%d\n", maxEdges)
+	m2 := make(map[string]*dataStructure)
+	copier.Copy(&m2, &m)
+	workersDone := make(chan bool)
+
+	for k := range m {
+		go funkyCluster(m, m2, k, workersDone)
+	}
+
+	for i := 0; i < len(m); i++ {
+		os.Stdout.WriteString(fmt.Sprintf("Worker finished: (%d/%d) %02d%%\n", i, len(m), 100*i/len(m)))
+		<-workersDone
+	}
+
+	t = time.Now()
+	elapsed := t.Sub(start)
+	fmt.Println(elapsed)
+	fmt.Println()
+
 }
 
-func cluster(data DataStructure) {
-	// vec4 o = texture(image, v_texCoord);
-	// vec3 position = vec3(o.x, o.y, o.z);
-	// vec3 velocity = vec3(0.0, 0.0, 0.0);
+func funkyCluster(wData map[string]*dataStructure, rData map[string]*dataStructure, id string, done chan bool) {
 
-	// if (o.w > 0.5) {
-	//     if (forceActive < 0.5) {
-	//         for (float x = 0.0; x < maxEdges; x++) {
+	self := rData[id]
 
-	//             vec3 ref = texelFetch(edges, ivec3(x, v_texCoord.x * size,v_texCoord.y * size), 0).xyz;
+	var velocity mgl32.Vec3
 
-	//             if (ref.x >= 0.0) {
-	//                 vec3 p = texelFetch(image, ivec2(ref.x, ref.y), 0).xyz;
+	for _, edge := range rData[id].edges {
+		attraction := rData[edge.attraction]
+		if attraction == nil {
+			continue
+		}
+		if self.id != attraction.id {
+			distance := self.position.Sub(attraction.position).Len()
+			force := edge.force * distance * distance
+			velocity = velocity.Sub(self.position.Sub(attraction.position).Normalize().Mul(mgl32.Clamp(0.0125*force, 0, 0.25)))
+		}
+	}
 
-	//                 if (!(p.x == position.x && p.y == position.y)) {
-	//                     float radius = distance(p, position);
-	//                     float force = ref.z * radius * radius;
-	//                     velocity -= normalize(position - p) * clamp(0.0125 * force, 0.0, 0.25);
-	//                 }
-	//             }
+	for _, repulsion := range rData {
+		distance := self.position.Sub(repulsion.position).Len()
+		force := 16 / (distance * distance)
+		velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp(0.0001*force, 0, 0.0025)))
+	}
 
-	//         }
+	self.position = self.position.Add(velocity)
 
-	// 			for (float x = 0.0; x < size; x++) {
-	// 			for (float y = 0.0; y < size; y++) {
+	done <- true
 
-	// 				vec4 pp = texelFetch(image, ivec2(x, y), 0);
-
-	// 				if(pp.w > 0.55) {
-	// 					vec3 p = pp.xyz;
-	// 					if (!(p.x == position.x && p.y == position.y)) {
-	// 						float radius = distance(p, position);
-	// 						float force = 16.0 / (radius * radius);
-	// 						velocity += normalize(position - p) * clamp(0.0001 * force, 0.0, 0.0025);
-
-	// 					}
-	// 				}
-
-	// 			}
-	// 		}
-
-	// 		position += velocity;
-	// 	}
-	// }
-
-	// outColor = vec4(position, o.w);
 }
