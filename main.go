@@ -87,7 +87,7 @@ func main() {
 	copier.Copy(&m2, &m)
 	workersDone := make(chan bool)
 
-	for i := 1; i <= 1; i++ {
+	for i := 0; i <= 50; i += 2 {
 		for k := range m {
 			go funkyCluster(m, m2, k, workersDone)
 		}
@@ -97,6 +97,7 @@ func main() {
 		}
 
 		writeToFile(m)
+		fmt.Println(i)
 
 		for k := range m {
 			go funkyCluster(m2, m, k, workersDone)
@@ -107,6 +108,7 @@ func main() {
 		}
 
 		writeToFile(m2)
+		fmt.Println(i + 1)
 	}
 
 	t = time.Now()
