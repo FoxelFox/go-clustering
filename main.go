@@ -87,15 +87,25 @@ func main() {
 	copier.Copy(&m2, &m)
 	workersDone := make(chan bool)
 
-	for k := range m {
-		go funkyCluster(m, m2, k, workersDone)
+	for i := 1; i <= 25; i++ {
+		for k := range m {
+			go funkyCluster(m, m2, k, workersDone)
+		}
+
+		for i := 0; i < len(m); i++ {
+			<-workersDone
+		}
+
+		for k := range m {
+			go funkyCluster(m2, m, k, workersDone)
+		}
+
+		for i := 0; i < len(m); i++ {
+			<-workersDone
+		}
 	}
 
-	for i := 0; i < len(m); i++ {
-		<-workersDone
-	}
-
-	writeToFile(m)
+	writeToFile(m2)
 
 	t = time.Now()
 	elapsed := t.Sub(start)
@@ -122,11 +132,11 @@ func funkyCluster(wData map[string]*dataStructure, rData map[string]*dataStructu
 		}
 	}
 
-	// for _, repulsion := range rData {
-	// 	distance := self.position.Sub(repulsion.position).Len()
-	// 	force := 16 / (distance * distance)
-	// 	velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp(0.0001*force, 0, 0.0025)))
-	// }
+	for _, repulsion := range rData {
+		distance := self.position.Sub(repulsion.position).Len()
+		force := 16 / (distance * distance)
+		velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp(0.0001*force, 0, 0.0025)))
+	}
 
 	self.position = self.position.Add(velocity)
 
