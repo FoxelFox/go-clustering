@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -56,9 +58,9 @@ func main() {
 			index++
 
 			randomVector := mgl32.Vec3{
-				rand.Float32(),
-				rand.Float32(),
-				rand.Float32(),
+				rand.Float32()*2 - 1.0,
+				rand.Float32()*2 - 1.0,
+				rand.Float32()*2 - 1.0,
 			}
 
 			prem = &dataStructure{id: index, edges: []Edge{}, position: randomVector}
@@ -90,9 +92,10 @@ func main() {
 	}
 
 	for i := 0; i < len(m); i++ {
-		os.Stdout.WriteString(fmt.Sprintf("Worker finished: (%d/%d) %02d%%\n", i, len(m), 100*i/len(m)))
 		<-workersDone
 	}
+
+	writeToFile(m)
 
 	t = time.Now()
 	elapsed := t.Sub(start)
@@ -119,14 +122,32 @@ func funkyCluster(wData map[string]*dataStructure, rData map[string]*dataStructu
 		}
 	}
 
-	for _, repulsion := range rData {
-		distance := self.position.Sub(repulsion.position).Len()
-		force := 16 / (distance * distance)
-		velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp(0.0001*force, 0, 0.0025)))
-	}
+	// for _, repulsion := range rData {
+	// 	distance := self.position.Sub(repulsion.position).Len()
+	// 	force := 16 / (distance * distance)
+	// 	velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp(0.0001*force, 0, 0.0025)))
+	// }
 
 	self.position = self.position.Add(velocity)
 
 	done <- true
 
+}
+
+func writeToFile(data map[string]*dataStructure) {
+	f, _ := os.Create("test")
+	buf := new(bytes.Buffer)
+
+	for _, item := range data {
+		binary.Write(buf, binary.LittleEndian, item.position.X())
+		binary.Write(buf, binary.LittleEndian, item.position.Y())
+		binary.Write(buf, binary.LittleEndian, item.position.Z())
+		binary.Write(buf, binary.LittleEndian, float32(1.0))
+
+	}
+
+	//fmt.Println(float32(1.0))
+	f.Write(buf.Bytes())
+
+	f.Close()
 }
