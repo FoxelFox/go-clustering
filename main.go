@@ -128,15 +128,15 @@ func funkyCluster(wData map[string]*dataStructure, rData map[string]*dataStructu
 		if self.id != attraction.id {
 			distance := self.position.Sub(attraction.position).Len()
 			force := edge.force * distance * distance
-			velocity = velocity.Sub(self.position.Sub(attraction.position).Normalize().Mul(mgl32.Clamp(0.0125*force, 0, 0.25)))
+			velocity = velocity.Sub(self.position.Sub(attraction.position).Normalize().Mul(mgl32.Clamp(0.0125*force, 0, 1)))
 		}
 	}
 
 	for _, repulsion := range rData {
 		if self.id != repulsion.id {
 			distance := self.position.Sub(repulsion.position).Len()
-			force := 16 / (distance * distance)
-			velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp(0.0001*force, 0, 0.0025)))
+			force := 16 / distance
+			velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(force))
 		}
 	}
 
@@ -147,7 +147,7 @@ func funkyCluster(wData map[string]*dataStructure, rData map[string]*dataStructu
 }
 
 func writeToFile(data map[string]*dataStructure) {
-	f, _ := os.Create("test")
+	f, _ := os.Create("test.bin")
 	buf := new(bytes.Buffer)
 
 	for _, item := range data {
