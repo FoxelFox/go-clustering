@@ -96,6 +96,8 @@ func main() {
 			<-workersDone
 		}
 
+		writeToFile(m)
+
 		for k := range m {
 			go funkyCluster(m2, m, k, workersDone)
 		}
@@ -103,9 +105,9 @@ func main() {
 		for i := 0; i < len(m); i++ {
 			<-workersDone
 		}
-	}
 
-	writeToFile(m2)
+		writeToFile(m2)
+	}
 
 	t = time.Now()
 	elapsed := t.Sub(start)
@@ -136,7 +138,7 @@ func funkyCluster(wData map[string]*dataStructure, rData map[string]*dataStructu
 		if self.id != repulsion.id {
 			distance := self.position.Sub(repulsion.position).Len()
 			force := 16 / distance
-			velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(force))
+			velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp(0.0001*force, 0, 10)))
 		}
 	}
 
