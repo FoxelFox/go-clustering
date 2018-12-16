@@ -61,7 +61,7 @@ func main() {
 				rand.Float32()*2 - 1.0,
 				rand.Float32()*2 - 1.0,
 				rand.Float32()*2 - 1.0,
-			}
+			}.Normalize().Mul(10)
 
 			prem = &dataStructure{id: index, edges: []Edge{}, position: randomVector}
 			m[v[0]] = prem
@@ -123,6 +123,7 @@ func funkyCluster(wData map[string]*dataStructure, rData map[string]*dataStructu
 	self := rData[id]
 
 	var velocity mgl32.Vec3
+	dist := float32(0.0001)
 
 	for _, edge := range rData[id].edges {
 		attraction := rData[edge.attraction]
@@ -131,18 +132,23 @@ func funkyCluster(wData map[string]*dataStructure, rData map[string]*dataStructu
 		}
 		if self.id != attraction.id {
 			distance := self.position.Sub(attraction.position).Len()
-			force := edge.force * distance * distance
-			velocity = velocity.Sub(self.position.Sub(attraction.position).Normalize().Mul(mgl32.Clamp(0.0125*force, 0, 1)))
+
+			if distance > dist {
+				velocity = velocity.Sub(self.position.Sub(attraction.position).Normalize().Mul(mgl32.Clamp((distance-dist), 0.0, 100.0) * 0.5))
+			}
+
 		}
 	}
 
-	for _, repulsion := range rData {
-		if self.id != repulsion.id {
-			distance := self.position.Sub(repulsion.position).Len()
-			force := 16 / distance
-			velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp(0.0001*force, 0, 10)))
-		}
-	}
+	// for _, repulsion := range rData {
+	// 	if self.id != repulsion.id {
+	// 		distance := self.position.Sub(repulsion.position).Len()
+
+	// 		if distance <= dist {
+	// 			velocity = velocity.Add(self.position.Sub(repulsion.position).Normalize().Mul(mgl32.Clamp((dist-distance), 0.0, 10.0) * 0.5))
+	// 		}
+	// 	}
+	// }
 
 	self.position = self.position.Add(velocity)
 
